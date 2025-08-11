@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Papan Skor Bulutangkis Digital</title>
+    <style>
+        /* Menggunakan font yang lebih modern dan tebal */
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@700&family=Roboto:wght@900&display=swap');
+
+        /* --- General Styling --- */
+        body {
+            font-family: 'Roboto', 'Segoe UI', sans-serif;
+            margin: 0;
+            background-color: #2c3e50;
+            color: #333;
+            text-align: center;
+            user-select: none;
+            overflow: hidden; /* Mencegah scrolling pada body */
+        }
+
+        /* --- Scoreboard Display (Area untuk di-capture OBS) --- */
+        #scoreboard-display {
+            background-color: #00ff00; /* Warna hijau solid untuk Chroma Key */
+            padding: 60px 20px; /* Padding atas/bawah ditambah lebih banyak lagi */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 20px; /* Jarak antar baris biru ditambah */
+            height: 340px; /* Tinggi ditambah lebih banyak lagi untuk area aman */
+            box-sizing: border-box;
+            border-bottom: 8px solid #1a252f;
+        }
+
+        .team-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #34495e; /* Latar belakang baris tim */
+            border-radius: 10px;
+            padding: 10px 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .team-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .serve-indicator {
+            width: 25px; /* Ukuran disesuaikan untuk lingkaran */
+            height: 25px;
+            visibility: hidden; /* Sembunyikan secara default */
+        }
+        .serve-indicator.serving {
+            visibility: visible; /* Tampilkan jika tim sedang serve */
+        }
+
+        .team-name {
+            font-size: 2.5em; /* Ukuran font nama tim */
+            font-weight: 900;
+            color: white;
+        }
+
+        .scores-container {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .game-score {
+            font-family: 'Teko', sans-serif;
+            font-size: 4.5em; /* Ukuran font skor utama */
+            font-weight: 700;
+            color: white;
+            width: 60px;
+            text-align: center;
+        }
+        
+        .set-score {
+            font-family: 'Teko', sans-serif;
+            font-size: 4.5em; /* Ukuran font skor set */
+            font-weight: 700;
+            color: #f1c40f; /* Warna kuning untuk skor set */
+            background-color: rgba(0,0,0,0.2);
+            border-radius: 5px;
+            width: 60px;
+            text-align: center;
+        }
+
+
+        /* --- Control Panel (Compact Version) --- */
+        #control-panel {
+            padding: 20px;
+            background-color: #ecf0f1;
+        }
+        
+        .control-grid {
+            display: grid;
+            /* Tiga kolom: Tim Kiri, Kontrol Global, Tim Kanan */
+            grid-template-columns: 1fr auto 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            margin: auto;
+        }
+
+        .control-section {
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .control-section h3 {
+            margin-top: 0;
+            border-bottom: 2px solid #bdc3c7;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            color: #34495e;
+        }
+
+        .global-controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
+            font-size: 1.1em;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            margin: 5px;
+            color: white;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            width: 180px; /* Lebar tombol disamakan agar rapi */
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn-add { background-color: #27ae60; }
+        .btn-subtract { background-color: #c0392b; }
+        .btn-action { background-color: #2980b9; }
+        .btn-reset { background-color: #f39c12; }
+        .btn-update { background-color: #8e44ad; width: auto; } /* Tombol set dibuat auto width */
+
+    </style>
+</head>
+<body>
+
+    <!-- =================================================================== -->
+    <!-- BAGIAN ATAS: UNTUK DI-CAPTURE OLEH OBS (AREA GREENSCREEN)           -->
+    <!-- =================================================================== -->
+    <div id="scoreboard-display">
+        <!-- Baris Tim A -->
+        <div class="team-row">
+            <div class="team-info">
+                <div id="serve-a" class="serve-indicator">
+                    <svg viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="50" fill="#f1c40f"/>
+                    </svg>
+                </div>
+                <div id="team-a-name-display" class="team-name">HOME</div>
+            </div>
+            <div class="scores-container">
+                <div id="set-score-a" class="set-score">0</div>
+                <div id="game-score-a" class="game-score">0</div>
+            </div>
+        </div>
+        <!-- Baris Tim B -->
+        <div class="team-row">
+            <div class="team-info">
+                <div id="serve-b" class="serve-indicator">
+                     <svg viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="50" fill="#f1c40f"/>
+                    </svg>
+                </div>
+                <div id="team-b-name-display" class="team-name">AWAY</div>
+            </div>
+            <div class="scores-container">
+                <div id="set-score-b" class="set-score">0</div>
+                <div id="game-score-b" class="game-score">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- BAGIAN BAWAH: PANEL KONTROL (TIDAK PERLU DI-CAPTURE)                -->
+    <!-- =================================================================== -->
+    <div id="control-panel">
+        <div class="control-grid">
+            <!-- Kontrol Tim Kiri -->
+            <div class="control-section">
+                <h3>TIM KIRI (HOME)</h3>
+                <div class="input-group">
+                    <input type="text" id="team-a-input" placeholder="Nama Tim / Pemain">
+                    <button onclick="updateNames()" class="btn-update">Set</button>
+                </div>
+                <button onclick="changeScore('a', 1)" class="btn-add">+1 Poin</button>
+                <button onclick="changeScore('a', -1)" class="btn-subtract">-1 Poin</button>
+                <button onclick="awardGame('a')" class="btn-action">Menang Game</button>
+            </div>
+
+            <!-- Kontrol Global -->
+            <div class="control-section global-controls">
+                <h3>GLOBAL</h3>
+                <button onclick="switchServe()" class="btn-action">Tukar Serve</button>
+                <button onclick="swapSides()" class="btn-action">Tukar Sisi</button>
+                <button onclick="resetCurrentGame()" class="btn-reset">Reset Skor</button>
+                <button onclick="resetMatch()" class="btn-reset">Reset Match</button>
+            </div>
+
+            <!-- Kontrol Tim Kanan -->
+            <div class="control-section">
+                <h3>TIM KANAN (AWAY)</h3>
+                <div class="input-group">
+                    <input type="text" id="team-b-input" placeholder="Nama Tim / Pemain">
+                    <button onclick="updateNames()" class="btn-update">Set</button>
+                </div>
+                <button onclick="changeScore('b', 1)" class="btn-add">+1 Poin</button>
+                <button onclick="changeScore('b', -1)" class="btn-subtract">-1 Poin</button>
+                <button onclick="awardGame('b')" class="btn-action">Menang Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mengambil elemen-elemen dari HTML
+        const gameScoreA_El = document.getElementById('game-score-a');
+        const gameScoreB_El = document.getElementById('game-score-b');
+        const setScoreA_El = document.getElementById('set-score-a');
+        const setScoreB_El = document.getElementById('set-score-b');
+        const teamANameDisplay_El = document.getElementById('team-a-name-display');
+        const teamBNameDisplay_El = document.getElementById('team-b-name-display');
+        const teamAInput_El = document.getElementById('team-a-input');
+        const teamBInput_El = document.getElementById('team-b-input');
+        const serveA_El = document.getElementById('serve-a');
+        const serveB_El = document.getElementById('serve-b');
+
+        // State (data) skor
+        let state = {
+            gameScoreA: 0,
+            gameScoreB: 0,
+            setScoreA: 0,
+            setScoreB: 0,
+            teamAName: "",
+            teamBName: "",
+            servingTeam: 'a' // 'a' or 'b'
+        };
+
+        // Fungsi untuk memperbarui semua tampilan di papan skor
+        function updateDisplay() {
+            gameScoreA_El.textContent = state.gameScoreA;
+            gameScoreB_El.textContent = state.gameScoreB;
+            setScoreA_El.textContent = state.setScoreA;
+            setScoreB_El.textContent = state.setScoreB;
+
+            // Update nama, jika kosong gunakan placeholder
+            teamANameDisplay_El.textContent = state.teamAName || "HOME";
+            teamBNameDisplay_El.textContent = state.teamBName || "AWAY";
+            
+            // Juga update nilai di input box agar konsisten
+            teamAInput_El.value = state.teamAName;
+            teamBInput_El.value = state.teamBName;
+
+            // Update indikator serve
+            serveA_El.classList.toggle('serving', state.servingTeam === 'a');
+            serveB_El.classList.toggle('serving', state.servingTeam === 'b');
+        }
+
+        // Fungsi untuk mengubah skor
+        function changeScore(team, value) {
+            if (team === 'a') {
+                state.gameScoreA += value;
+                if (state.gameScoreA < 0) state.gameScoreA = 0;
+            } else if (team === 'b') {
+                state.gameScoreB += value;
+                if (state.gameScoreB < 0) state.gameScoreB = 0;
+            }
+            updateDisplay();
+        }
+
+        // Fungsi untuk memberikan kemenangan game (set) ke salah satu tim
+        function awardGame(team) {
+            if (team === 'a') {
+                if (state.setScoreA < 3) state.setScoreA++;
+            } else if (team === 'b') {
+                if (state.setScoreB < 3) state.setScoreB++;
+            }
+            resetCurrentGame(); 
+        }
+
+        // Fungsi untuk memperbarui nama tim
+        function updateNames() {
+            state.teamAName = teamAInput_El.value.trim();
+            state.teamBName = teamBInput_El.value.trim();
+            updateDisplay();
+        }
+
+        // Fungsi untuk mereset game saat ini (hanya skor)
+        function resetCurrentGame() {
+            state.gameScoreA = 0;
+            state.gameScoreB = 0;
+            updateDisplay();
+        }
+
+        // Fungsi untuk mereset seluruh pertandingan
+        function resetMatch() {
+            state.gameScoreA = 0;
+            state.gameScoreB = 0;
+            state.setScoreA = 0;
+            state.setScoreB = 0;
+            state.teamAName = "";
+            state.teamBName = "";
+            state.servingTeam = 'a';
+            updateDisplay();
+        }
+        
+        // Fungsi untuk menukar serve
+        function switchServe() {
+            state.servingTeam = state.servingTeam === 'a' ? 'b' : 'a';
+            updateDisplay();
+        }
+
+        // Fungsi untuk menukar sisi
+        function swapSides() {
+            [
+                state.gameScoreA, state.gameScoreB,
+                state.setScoreA, state.setScoreB,
+                state.teamAName, state.teamBName
+            ] = [
+                state.gameScoreB, state.gameScoreA,
+                state.setScoreB, state.setScoreA,
+                state.teamBName, state.teamAName
+            ];
+            updateDisplay();
+        }
+
+        // Panggil updateDisplay() saat halaman pertama kali dimuat
+        window.onload = updateDisplay;
+    </script>
+
+</body>
+</html>
